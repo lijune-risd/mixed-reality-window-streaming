@@ -46,7 +46,7 @@ class VideoTransformTrack(MediaStreamTrack):
         #  print("frame2: ")
         #  print(frame2)
 
-        print(self.webcamPlayer.video)
+        #  print(self.webcamPlayer.video)
         frame2 = await self.webcamPlayer.video.recv()
         img2 = frame2.to_ndarray(format="bgr24")
 
@@ -174,8 +174,6 @@ async def offer(request):
             pc.addTrack(player.audio)
             recorder.addTrack(track)
         elif track.kind == "video":
-
-            webcamFrame = webcamPlayer.video.recv
 
             pc.addTrack(
                 VideoTransformTrack(
