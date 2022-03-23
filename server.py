@@ -20,8 +20,7 @@ ROOT = os.path.dirname(__file__)
 logger = logging.getLogger("pc")
 pcs = set()
 relay = MediaRelay()
-
-vid = cv2.VideoCapture(0)
+#  vid = cv2.VideoCapture(0)
 
 
 class VideoTransformTrack(MediaStreamTrack):
@@ -31,27 +30,31 @@ class VideoTransformTrack(MediaStreamTrack):
 
     kind = "video"
 
-    def __init__(self, track, transform):
+    def __init__(self, track, transform, webcamPlayer):
         super().__init__()  # don't forget this!
         self.track = track
         self.transform = transform
+        self.webcamPlayer = webcamPlayer
 
     async def recv(self):
         frame = await self.track.recv()
 
-        ret, frame2 = vid.read()
+        #  ret, frame2 = vid.read()
 
         #  https://stackoverflow.com/questions/43665208/how-to-get-the-latest-frame-from-capture-device-camera-in-opencv
 
         #  print("frame2: ")
         #  print(frame2)
 
+        print(self.webcamPlayer.video)
+        frame2 = await self.webcamPlayer.video.recv()
+        img2 = frame2.to_ndarray(format="bgr24")
 
 
         if self.transform == "cartoon":
             img = frame.to_ndarray(format="bgr24")
 
-            img = np.concatenate((img, frame2), axis=1)
+            img = np.concatenate((img, img2), axis=1)
 
             # prepare color
             img_color = cv2.pyrDown(cv2.pyrDown(img))
@@ -142,6 +145,13 @@ async def offer(request):
     else:
         recorder = MediaBlackhole()
 
+    # Open webcam on OS X.
+    webcamPlayer = MediaPlayer('default:none', format='avfoundation', options={
+        'framerate': '30',
+        'video_size': '640x480'
+    })
+
+
     @pc.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
@@ -164,10 +174,12 @@ async def offer(request):
             pc.addTrack(player.audio)
             recorder.addTrack(track)
         elif track.kind == "video":
+
+            webcamFrame = webcamPlayer.video.recv
+
             pc.addTrack(
                 VideoTransformTrack(
-                    relay.subscribe(track), transform=params["video_transform"]
-                )
+                    relay.subscribe(track), transform=params["video_transform"], webcamPlayer=webcamPlayer)
             )
             if args.record_to:
                 recorder.addTrack(relay.subscribe(track))
@@ -200,25 +212,25 @@ async def on_shutdown(app):
     pcs.clear()
 
 
-async def renderOpencv(): 
+#  async def renderOpencv(): 
 
-    while True: 
-        ret, frame = vid.read()
+#      while True: 
+#          ret, frame = vid.read()
 
-        # Display the resulting frame
-        cv2.imshow('frame', frame)
+#          # Display the resulting frame
+#          cv2.imshow('frame', frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+#          if cv2.waitKey(1) & 0xFF == ord('q'):
+#              break
 
-        await asyncio.sleep(0.1)
+#          await asyncio.sleep(0.1)
 
-async def start_background_tasks(app): 
-    app['opencv_renderer'] = asyncio.create_task(renderOpencv())
+#  async def start_background_tasks(app): 
+#      app['opencv_renderer'] = asyncio.create_task(renderOpencv())
 
-async def cleanup_background_tasks(app): 
-    app['opencv_renderer'].cancel()
-    await app['opencv_renderer'] 
+#  async def cleanup_background_tasks(app): 
+#      app['opencv_renderer'].cancel()
+#      await app['opencv_renderer'] 
 
 
 #  async def main(): 
@@ -293,8 +305,8 @@ if __name__ == "__main__":
         ssl_context = None
 
     app = web.Application()
-    app.on_startup.append(start_background_tasks)
-    app.on_cleanup.append(cleanup_background_tasks)
+    #  app.on_startup.append(start_background_tasks)
+    #  app.on_cleanup.append(cleanup_background_tasks)
     app.on_shutdown.append(on_shutdown)
     app.router.add_get("/", index)
     app.router.add_get("/client.js", javascript)
