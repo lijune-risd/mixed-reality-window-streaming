@@ -51,11 +51,19 @@ class VideoTransformTrack(MediaStreamTrack):
 
         frame2 = await self.webcamPlayer.video.recv()
         img2 = frame2.to_ndarray(format="bgr24")
+        img3 = cv2.imread("sloth.jpg")
+        img3 = cv2.resize(img3, (640, 480), interpolation=cv2.INTER_AREA)
+        # print(img3.shape)
+        # print(img2.shape)
+        # (1707, 2560, 3)
+        # (480, 640, 3)
+
 
         try:
             img = np.concatenate((img, img2), axis=1)
         except Exception as e:
             pass
+
 
         #  frame = await self.webcamPlayer.video.recv()
         #  img = frame.to_ndarray(format="bgr24")

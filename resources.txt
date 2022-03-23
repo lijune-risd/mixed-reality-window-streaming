@@ -1,3 +1,8 @@
 https://github.com/aiortc/aiortc
 
-https://github.com/aiortc/aiortc/issues/104 ->  tartavull commented on Mar 23, 2019 -> related to framerate and raspberry pi
+tartavull commented on Mar 23, 2019 -> related to framerate and raspberry pi:
+https://github.com/aiortc/aiortc/issues/104 
+
+
+Mediapipe documentation for overlaying (selfie segementation):
+https://google.github.io/mediapipe/solutions/selfie_segmentation
