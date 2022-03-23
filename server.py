@@ -102,7 +102,6 @@ async def offer(request):
         'video_size': '640x480'
     })
 
-
     @pc.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
@@ -161,9 +160,9 @@ async def on_shutdown(app):
     pcs.clear()
 
 
-#  async def renderOpencv(): 
+#  async def renderOpencv():
 
-#      while True: 
+#      while True:
 #          ret, frame = vid.read()
 
 #          # Display the resulting frame
@@ -174,15 +173,15 @@ async def on_shutdown(app):
 
 #          await asyncio.sleep(0.1)
 
-#  async def start_background_tasks(app): 
+#  async def start_background_tasks(app):
 #      app['opencv_renderer'] = asyncio.create_task(renderOpencv())
 
-#  async def cleanup_background_tasks(app): 
+#  async def cleanup_background_tasks(app):
 #      app['opencv_renderer'].cancel()
-#      await app['opencv_renderer'] 
+#      await app['opencv_renderer']
 
 
-#  async def main(): 
+#  async def main():
 #      parser = argparse.ArgumentParser(
 #          description="WebRTC audio / video / data-channels demo"
 #      )
@@ -220,8 +219,6 @@ async def on_shutdown(app):
 #      web.run_app(
 #          app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
 #      )
-
-
 
 
 if __name__ == "__main__":
@@ -263,4 +260,3 @@ if __name__ == "__main__":
     web.run_app(
         app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
     )
-
