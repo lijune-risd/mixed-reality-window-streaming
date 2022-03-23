@@ -37,7 +37,6 @@ class VideoTransformTrack(MediaStreamTrack):
         self.webcamPlayer = webcamPlayer
 
     async def recv(self):
-        frame = await self.track.recv()
 
         #  ret, frame2 = vid.read()
 
@@ -47,72 +46,24 @@ class VideoTransformTrack(MediaStreamTrack):
         #  print(frame2)
 
         #  print(self.webcamPlayer.video)
+        frame = await self.track.recv()
+        img = frame.to_ndarray(format="bgr24")
+
         frame2 = await self.webcamPlayer.video.recv()
         img2 = frame2.to_ndarray(format="bgr24")
 
-
-        if self.transform == "cartoon":
-            img = frame.to_ndarray(format="bgr24")
-
+        try:
             img = np.concatenate((img, img2), axis=1)
+        except Exception as e:
+            pass
 
-            # prepare color
-            img_color = cv2.pyrDown(cv2.pyrDown(img))
-            for _ in range(6):
-                img_color = cv2.bilateralFilter(img_color, 9, 9, 7)
-            img_color = cv2.pyrUp(cv2.pyrUp(img_color))
+        #  frame = await self.webcamPlayer.video.recv()
+        #  img = frame.to_ndarray(format="bgr24")
 
-            # prepare edges
-            img_edges = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            img_edges = cv2.adaptiveThreshold(
-                cv2.medianBlur(img_edges, 7),
-                255,
-                cv2.ADAPTIVE_THRESH_MEAN_C,
-                cv2.THRESH_BINARY,
-                9,
-                2,
-            )
-            img_edges = cv2.cvtColor(img_edges, cv2.COLOR_GRAY2RGB)
-
-            # combine color and edges
-            img = cv2.bitwise_and(img_color, img_edges)
-
-            # rebuild a VideoFrame, preserving timing information
-            new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-            new_frame.pts = frame.pts
-            new_frame.time_base = frame.time_base
-            return new_frame
-        elif self.transform == "edges":
-            # perform edge detection
-            img = frame.to_ndarray(format="bgr24")
-            img = cv2.cvtColor(cv2.Canny(img, 100, 200), cv2.COLOR_GRAY2BGR)
-
-            # rebuild a VideoFrame, preserving timing information
-            new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-            new_frame.pts = frame.pts
-            new_frame.time_base = frame.time_base
-            return new_frame
-        elif self.transform == "rotate":
-            # rotate image
-            #  img = frame.to_ndarray(format="bgr24")
-            #  rows, cols, _ = img.shape
-            #  M = cv2.getRotationMatrix2D((cols / 2, rows / 2), frame.time * 45, 1)
-            #  img = cv2.warpAffine(img, M, (cols, rows))
-
-            # resize image
-            img = frame.to_ndarray(format="bgr24")
-            scale = 50
-            width = int(img.shape[1] * scale / 100)
-            height = img.shape[0]
-            img = cv2.resize(img, (width, height))
-
-            # rebuild a VideoFrame, preserving timing information
-            new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-            new_frame.pts = frame.pts
-            new_frame.time_base = frame.time_base
-            return new_frame
-        else:
-            return frame
+        new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+        new_frame.pts = frame.pts
+        new_frame.time_base = frame.time_base
+        return new_frame
 
 
 async def index(request):
