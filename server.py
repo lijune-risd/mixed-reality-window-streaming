@@ -51,7 +51,7 @@ class VideoTransformTrack(MediaStreamTrack):
         if self.transform == "cartoon":
             img = frame.to_ndarray(format="bgr24")
 
-            #  img = np.concatenate((img, frame2), axis=1)
+            img = np.concatenate((img, frame2), axis=1)
 
             # prepare color
             img_color = cv2.pyrDown(cv2.pyrDown(img))
@@ -200,27 +200,6 @@ async def on_shutdown(app):
     pcs.clear()
 
 
-async def aiortcServer(args): 
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-    if args.cert_file:
-        ssl_context = ssl.SSLContext()
-        ssl_context.load_cert_chain(args.cert_file, args.key_file)
-    else:
-        ssl_context = None
-
-    app = web.Application()
-    app.on_shutdown.append(on_shutdown)
-    app.router.add_get("/", index)
-    app.router.add_get("/client.js", javascript)
-    app.router.add_post("/offer", offer)
-    web.run_app(
-        app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
-    )
-
 async def renderOpencv(): 
 
     while True: 
@@ -232,10 +211,60 @@ async def renderOpencv():
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.1)
+
+async def start_background_tasks(app): 
+    app['opencv_renderer'] = asyncio.create_task(renderOpencv())
+
+async def cleanup_background_tasks(app): 
+    app['opencv_renderer'].cancel()
+    await app['opencv_renderer'] 
 
 
-async def main(): 
+#  async def main(): 
+#      parser = argparse.ArgumentParser(
+#          description="WebRTC audio / video / data-channels demo"
+#      )
+#      parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
+#      parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
+#      parser.add_argument(
+#          "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
+#      )
+#      parser.add_argument(
+#          "--port", type=int, default=8080, help="Port for HTTP server (default: 8080)"
+#      )
+#      parser.add_argument("--record-to", help="Write received media to a file."),
+#      parser.add_argument("--verbose", "-v", action="count")
+
+#      args = parser.parse_args()
+
+#      if args.verbose:
+#          logging.basicConfig(level=logging.DEBUG)
+#      else:
+#          logging.basicConfig(level=logging.INFO)
+
+#      if args.cert_file:
+#          ssl_context = ssl.SSLContext()
+#          ssl_context.load_cert_chain(args.cert_file, args.key_file)
+#      else:
+#          ssl_context = None
+
+#      app = web.Application()
+#      app.on_startup.append(start_background_tasks)
+#      app.on_cleanup.append(cleanup_background_tasks)
+#      app.on_shutdown.append(on_shutdown)
+#      app.router.add_get("/", index)
+#      app.router.add_get("/client.js", javascript)
+#      app.router.add_post("/offer", offer)
+#      web.run_app(
+#          app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
+#      )
+
+
+
+
+if __name__ == "__main__":
+    #  asyncio.run(main())
     parser = argparse.ArgumentParser(
         description="WebRTC audio / video / data-channels demo"
     )
@@ -252,12 +281,25 @@ async def main():
 
     args = parser.parse_args()
 
-    asyncio.create_task(aiortcServer(args))
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
+    if args.cert_file:
+        ssl_context = ssl.SSLContext()
+        ssl_context.load_cert_chain(args.cert_file, args.key_file)
+    else:
+        ssl_context = None
 
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-    asyncio.run(renderOpencv())
+    app = web.Application()
+    app.on_startup.append(start_background_tasks)
+    app.on_cleanup.append(cleanup_background_tasks)
+    app.on_shutdown.append(on_shutdown)
+    app.router.add_get("/", index)
+    app.router.add_get("/client.js", javascript)
+    app.router.add_post("/offer", offer)
+    web.run_app(
+        app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
+    )
 
