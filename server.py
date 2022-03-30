@@ -5,13 +5,12 @@ import logging
 import os
 import ssl
 import uuid
-
 import numpy as np
 
 import cv2
 from aiohttp import web
 from av import VideoFrame
-
+from overlay import replace_background
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
 
@@ -51,18 +50,27 @@ class VideoTransformTrack(MediaStreamTrack):
 
         frame2 = await self.webcamPlayer.video.recv()
         img2 = frame2.to_ndarray(format="bgr24")
-        img3 = cv2.imread("sloth.jpg")
-        img3 = cv2.resize(img3, (640, 480), interpolation=cv2.INTER_AREA)
+        # img3 = cv2.imread("sloth.jpg")
+        # img3 = cv2.resize(img3, (640, 480), interpolation=cv2.INTER_AREA)
         # print(img3.shape)
         # print(img2.shape)
         # (1707, 2560, 3)
         # (480, 640, 3)
 
+        height, width, _ = img.shape
 
-        try:
-            img = np.concatenate((img, img2), axis=1)
-        except Exception as e:
-            pass
+
+        # img2 = cv2.resize(img2, (width//3, height//3), interpolation=cv2.INTER_AREA)
+        # img[0:height//3, 0:width//3] = img2
+        img2 = cv2.imread("sloth.jpg")
+        img = replace_background(img2, img)
+       
+
+
+        # try:
+        #     img = np.concatenate((img, img2), axis=1)
+        # except Exception as e:
+        #     pass
 
 
         #  frame = await self.webcamPlayer.video.recv()
