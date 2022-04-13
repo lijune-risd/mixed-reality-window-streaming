@@ -10,10 +10,12 @@ import numpy as np
 
 import cv2
 from aiohttp import web
-from av import VideoFrame
 
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
+
+from MediaStreamTracks.CustomTracks import NoTransformTrack
+from MediaStreamTracks.CustomTracks import VideoTransformTrack
 
 ROOT = os.path.dirname(__file__)
 
@@ -22,74 +24,6 @@ pcs = set()
 curClient = None
 relay = MediaRelay()
 #  vid = cv2.VideoCapture(0)
-
-class NoTransformTrack(MediaStreamTrack):
-    """
-    A video stream track that transforms frames from an another track.
-    """
-
-    kind = "video"
-
-    def __init__(self, track, transform):
-        super().__init__()  # don't forget this!
-        self.track = track
-        self.transform = transform
-
-    async def recv(self):
-
-        #  ret, frame2 = vid.read()
-
-        #  https://stackoverflow.com/questions/43665208/how-to-get-the-latest-frame-from-capture-device-camera-in-opencv
-
-        #  print("frame2: ")
-        #  print(frame2)
-
-        #  print(self.webcamPlayer.video)
-        frame = await self.track.recv()
-        return frame
-
-
-class VideoTransformTrack(MediaStreamTrack):
-    """
-    A video stream track that transforms frames from an another track.
-    """
-
-    kind = "video"
-
-    def __init__(self, track, transform, webcamPlayer):
-        super().__init__()  # don't forget this!
-        self.track = track
-        self.transform = transform
-        self.webcamPlayer = webcamPlayer
-
-    async def recv(self):
-
-        #  ret, frame2 = vid.read()
-
-        #  https://stackoverflow.com/questions/43665208/how-to-get-the-latest-frame-from-capture-device-camera-in-opencv
-
-        #  print("frame2: ")
-        #  print(frame2)
-
-        #  print(self.webcamPlayer.video)
-        frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
-
-        frame2 = await self.webcamPlayer.video.recv()
-        img2 = frame2.to_ndarray(format="bgr24")
-
-        try:
-            img = np.concatenate((img, img2), axis=1)
-        except Exception as e:
-            pass
-
-        #  frame = await self.webcamPlayer.video.recv()
-        #  img = frame.to_ndarray(format="bgr24")
-
-        new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-        new_frame.pts = frame.pts
-        new_frame.time_base = frame.time_base
-        return new_frame
 
 
 async def index(request):
@@ -127,10 +61,7 @@ async def offer(request):
 
     # prepare local media
     player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
-    if args.record_to:
-        recorder = MediaRecorder(args.record_to)
-    else:
-        recorder = MediaBlackhole()
+    recorder = MediaBlackhole()
 
     # Open webcam on OS X.
     webcamPlayer = MediaPlayer('default:none', format='avfoundation', options={
@@ -165,8 +96,8 @@ async def offer(request):
                 VideoTransformTrack(
                     relay.subscribe(track), transform=params["video_transform"], webcamPlayer=webcamPlayer)
             )
-            if args.record_to:
-                recorder.addTrack(relay.subscribe(track))
+            #  if args.record_to:
+            #      recorder.addTrack(relay.subscribe(track))
 
         @track.on("ended")
         async def on_ended():
@@ -203,10 +134,7 @@ async def dashboardOffer(request):
 
     # prepare local media
     player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
-    if args.record_to:
-        recorder = MediaRecorder(args.record_to)
-    else:
-        recorder = MediaBlackhole()
+    recorder = MediaBlackhole()
 
     @pc.on("datachannel")
     def on_datachannel(channel):
@@ -235,8 +163,8 @@ async def dashboardOffer(request):
                 NoTransformTrack(
                     relay.subscribe(track), transform=params["video_transform"])
             )
-            if args.record_to:
-                recorder.addTrack(relay.subscribe(track))
+            #  if args.record_to:
+            #      recorder.addTrack(relay.subscribe(track))
 
         @track.on("ended")
         async def on_ended():
@@ -272,44 +200,76 @@ async def on_shutdown(app):
 
 
 
+#  parser = argparse.ArgumentParser(
+#      description="WebRTC audio / video / data-channels demo"
+#  )
+#  parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
+#  parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
+#  parser.add_argument(
+#      "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
+#  )
+#  parser.add_argument(
+#      "--port", type=int, default=8080, help="Port for HTTP server (default: 8080)"
+#  )
+#  parser.add_argument("--record-to", help="Write received media to a file."),
+#  parser.add_argument("--verbose", "-v", action="count")
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="WebRTC audio / video / data-channels demo"
-    )
-    parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
-    parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
-    parser.add_argument(
-        "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
-    )
-    parser.add_argument(
-        "--port", type=int, default=8080, help="Port for HTTP server (default: 8080)"
-    )
-    parser.add_argument("--record-to", help="Write received media to a file."),
-    parser.add_argument("--verbose", "-v", action="count")
+#  logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+ssl_context = None
 
-    args = parser.parse_args()
 
-    if args.verbose:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
+app = web.Application()
+app.on_shutdown.append(on_shutdown)
+app.router.add_get("/", index)
+app.router.add_get("/dashboard", dashboardpage)
+app.router.add_get("/dashboard.js", dashboardjs)
+app.router.add_get("/client.js", javascript)
+app.router.add_post("/offer", offer)
+app.router.add_post("/dashboardOffer", dashboardOffer)
+#  web.run_app(
+#      app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
+#  )
 
-    if args.cert_file:
-        ssl_context = ssl.SSLContext()
-        ssl_context.load_cert_chain(args.cert_file, args.key_file)
-    else:
-        ssl_context = None
 
-    app = web.Application()
-    app.on_shutdown.append(on_shutdown)
-    app.router.add_get("/", index)
-    app.router.add_get("/dashboard", dashboardpage)
-    app.router.add_get("/dashboard.js", dashboardjs)
-    app.router.add_get("/client.js", javascript)
-    app.router.add_post("/offer", offer)
-    app.router.add_post("/dashboardOffer", dashboardOffer)
-    web.run_app(
-        app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
-    )
+
+#  if __name__ == "__main__":
+#      parser = argparse.ArgumentParser(
+#          description="WebRTC audio / video / data-channels demo"
+#      )
+#      parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
+#      parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
+#      parser.add_argument(
+#          "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
+#      )
+#      parser.add_argument(
+#          "--port", type=int, default=8080, help="Port for HTTP server (default: 8080)"
+#      )
+#      parser.add_argument("--record-to", help="Write received media to a file."),
+#      parser.add_argument("--verbose", "-v", action="count")
+
+#      args = parser.parse_args()
+
+#      if args.verbose:
+#          logging.basicConfig(level=logging.DEBUG)
+#      else:
+#          logging.basicConfig(level=logging.INFO)
+
+#      if args.cert_file:
+#          ssl_context = ssl.SSLContext()
+#          ssl_context.load_cert_chain(args.cert_file, args.key_file)
+#      else:
+#          ssl_context = None
+
+#      app = web.Application()
+#      app.on_shutdown.append(on_shutdown)
+#      app.router.add_get("/", index)
+#      app.router.add_get("/dashboard", dashboardpage)
+#      app.router.add_get("/dashboard.js", dashboardjs)
+#      app.router.add_get("/client.js", javascript)
+#      app.router.add_post("/offer", offer)
+#      app.router.add_post("/dashboardOffer", dashboardOffer)
+#      web.run_app(
+#          app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
+#      )
 
