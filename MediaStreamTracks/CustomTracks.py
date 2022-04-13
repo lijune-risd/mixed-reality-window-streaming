@@ -2,6 +2,7 @@
 from av import VideoFrame
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
+import numpy as np
 
 class WindowTransformTrack(MediaStreamTrack):
     """
@@ -17,9 +18,32 @@ class WindowTransformTrack(MediaStreamTrack):
         self.guestTrack = guestTrack
 
     async def recv(self):
+
+        frame = await self.track.recv()
+        img = frame.to_ndarray(format="bgr24")
+
+
+        if not self.guestTrack: 
+            return frame
+
+        guestFrame = await self.guestTrack.recv()
+        guestImg = guestFrame.to_ndarray(format="bgr24")
+
+        try:
+            img = np.concatenate((img, guestImg), axis=1)
+        except Exception as e:
+            pass
+
+
+        new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+        new_frame.pts = frame.pts
+        new_frame.time_base = frame.time_base
+        return new_frame
+
+
+
         #  frame = await self.track.recv()
         #  return frame
-        return None
 
 class GuestTransformTrack(MediaStreamTrack):
     """
@@ -38,16 +62,20 @@ class GuestTransformTrack(MediaStreamTrack):
 
         frame = await self.track.recv()
 
-        #  if not self.windowFrontTrack: 
-        #      return frame
+        if not self.windowFrontTrack: 
+            return frame
 
-        img = frame.to_ndarray(format="bgr24")
+        #  img = frame.to_ndarray(format="bgr24")
         # strip background from img
 
         windowFrontFrame = await self.windowFrontTrack.recv()
         windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
 
+        frame = await self.track.recv()
+        img = frame.to_ndarray(format="bgr24")
 
+
+        #  img = np.concatenate((img, img), axis=1)
         try:
             img = np.concatenate((img, windowFrontImg), axis=1)
         except Exception as e:
