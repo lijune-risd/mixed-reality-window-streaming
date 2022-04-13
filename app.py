@@ -9,16 +9,17 @@ import time
 
 import numpy as np
 
+from av import VideoFrame
 import cv2
 from aiohttp import web
 
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
 
-from MediaStreamTracks.CustomTracks import NoTransformTrack
-from MediaStreamTracks.CustomTracks import VideoTransformTrack
-from MediaStreamTracks.CustomTracks import GuestTransformTrack
-from MediaStreamTracks.CustomTracks import WindowTransformTrack
+#  from MediaStreamTracks.CustomTracks import NoTransformTrack
+#  from MediaStreamTracks.CustomTracks import VideoTransformTrack
+#  from MediaStreamTracks.CustomTracks import GuestTransformTrack
+#  from MediaStreamTracks.CustomTracks import WindowTransformTrack
 
 ROOT = os.path.dirname(__file__)
 
@@ -30,6 +31,91 @@ pcs = {}
 curClient = None
 relay = MediaRelay()
 #  vid = cv2.VideoCapture(0)
+
+class WindowTransformTrack(MediaStreamTrack):
+    """
+    A video stream track that transforms frames from an another track.
+    """
+
+    kind = "video"
+
+    def __init__(self, track, transform):
+        super().__init__()  # don't forget this!
+        self.track = track
+        self.transform = transform
+
+    async def recv(self):
+
+        frame = await self.track.recv()
+        img = frame.to_ndarray(format="bgr24")
+
+
+        if "guest" not in pcs: 
+        #  if not self.guestTrack: 
+            return frame
+
+        guestTrack = pcs["guest"].getReceivers()[0].track
+
+        guestFrame = await guestTrack.recv()
+        guestImg = guestFrame.to_ndarray(format="bgr24")
+
+        try:
+            img = np.concatenate((img, guestImg), axis=1)
+        except Exception as e:
+            pass
+
+
+        new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+        new_frame.pts = frame.pts
+        new_frame.time_base = frame.time_base
+        return new_frame
+
+
+
+        #  frame = await self.track.recv()
+        #  return frame
+
+class GuestTransformTrack(MediaStreamTrack):
+    """
+    A video stream track that transforms frames from an another track.
+    """
+
+    kind = "video"
+
+    def __init__(self, track, transform, windowFrontTrack):
+        super().__init__()  # don't forget this!
+        self.track = track
+        self.transform = transform
+        self.windowFrontTrack = windowFrontTrack
+
+    async def recv(self):
+
+        frame = await self.track.recv()
+
+        if not self.windowFrontTrack: 
+            return frame
+
+        #  img = frame.to_ndarray(format="bgr24")
+        # strip background from img
+
+        windowFrontFrame = await self.windowFrontTrack.recv()
+        windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
+
+        frame = await self.track.recv()
+        img = frame.to_ndarray(format="bgr24")
+
+
+        #  img = np.concatenate((img, img), axis=1)
+        try:
+            img = np.concatenate((img, windowFrontImg), axis=1)
+        except Exception as e:
+            pass
+
+
+        new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+        new_frame.pts = frame.pts
+        new_frame.time_base = frame.time_base
+        return new_frame
 
 
 async def windowpage(request):
@@ -77,11 +163,6 @@ async def windowoffer(request):
     def on_track(track):
         log_info("Track %s received", track.kind)
 
-        try:
-            guestTrack = pcs["guest"].getReceivers()[0].track
-        except Exception as e:
-            guestTrack = None
-
         if track.kind == "audio":
             pc.addTrack(player.audio)
             recorder.addTrack(track)
@@ -89,7 +170,7 @@ async def windowoffer(request):
 
             pc.addTrack(
                 WindowTransformTrack(
-                    relay.subscribe(track), transform=params["video_transform"], guestTrack=guestTrack)
+                    relay.subscribe(track), transform=params["video_transform"])
             )
 
         @track.on("ended")
