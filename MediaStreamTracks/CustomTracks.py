@@ -17,8 +17,9 @@ class WindowTransformTrack(MediaStreamTrack):
         self.guestTrack = guestTrack
 
     async def recv(self):
-        frame = await self.track.recv()
-        return frame
+        #  frame = await self.track.recv()
+        #  return frame
+        return None
 
 class GuestTransformTrack(MediaStreamTrack):
     """
