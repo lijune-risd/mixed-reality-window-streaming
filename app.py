@@ -16,6 +16,8 @@ from aiohttp import web
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
 
+from overlay import replace_background
+
 #  from MediaStreamTracks.CustomTracks import NoTransformTrack
 #  from MediaStreamTracks.CustomTracks import VideoTransformTrack
 #  from MediaStreamTracks.CustomTracks import GuestTransformTrack
@@ -60,7 +62,8 @@ class WindowTransformTrack(MediaStreamTrack):
         guestImg = guestFrame.to_ndarray(format="bgr24")
 
         try:
-            img = np.concatenate((img, guestImg), axis=1)
+            img = replace_background(guestImg, img)
+            #  img = np.concatenate((img, guestImg), axis=1)
         except Exception as e:
             pass
 
@@ -107,7 +110,8 @@ class GuestTransformTrack(MediaStreamTrack):
 
         #  img = np.concatenate((img, img), axis=1)
         try:
-            img = np.concatenate((img, windowFrontImg), axis=1)
+            #  img = np.concatenate((img, windowFrontImg), axis=1)
+            img = replace_background(img, windowFrontImg)
         except Exception as e:
             pass
 
