@@ -16,19 +16,198 @@ from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, Med
 
 from MediaStreamTracks.CustomTracks import NoTransformTrack
 from MediaStreamTracks.CustomTracks import VideoTransformTrack
+from MediaStreamTracks.CustomTracks import GuestTransformTrack
+from MediaStreamTracks.CustomTracks import WindowTransformTrack
 
 ROOT = os.path.dirname(__file__)
 
 logger = logging.getLogger("pc")
-pcs = set()
+
+#  pcs = [None, None, None]
+#  pcs = set()
+pcs = {}
 curClient = None
 relay = MediaRelay()
 #  vid = cv2.VideoCapture(0)
 
 
-async def index(request):
-    content = open(os.path.join(ROOT, "index.html"), "r").read()
+async def windowpage(request):
+    content = open(os.path.join(ROOT, "views/window.html"), "r").read()
     return web.Response(content_type="text/html", text=content)
+
+async def windowjs(request):
+    content = open(os.path.join(ROOT, "views/window.js"), "r").read()
+    return web.Response(content_type="application/javascript", text=content)
+
+async def windowoffer(request):
+    params = await request.json()
+    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+
+    pc = RTCPeerConnection()
+    pc_id = "PeerConnection(%s)" % uuid.uuid4()
+    pcs["windowFront"] = pc
+    print("PCS: ")
+    print(pcs)
+
+    def log_info(msg, *args):
+        logger.info(pc_id + " " + msg, *args)
+
+    log_info("Created for %s", request.remote)
+
+    # prepare local media
+    player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
+    recorder = MediaBlackhole()
+
+    @pc.on("datachannel")
+    def on_datachannel(channel):
+        @channel.on("message")
+        def on_message(message):
+            if isinstance(message, str) and message.startswith("ping"):
+                channel.send("pong" + message[4:])
+
+    @pc.on("connectionstatechange")
+    async def on_connectionstatechange():
+        log_info("Connection state is %s", pc.connectionState)
+        if pc.connectionState == "failed":
+            await pc.close()
+            pcs.discard(pc)
+
+    @pc.on("track")
+    def on_track(track):
+        log_info("Track %s received", track.kind)
+
+        try:
+            guestTrack = pcs["guest"].getReceivers()[0].track
+        except Exception as e:
+            guestTrack = None
+
+        if track.kind == "audio":
+            pc.addTrack(player.audio)
+            recorder.addTrack(track)
+        elif track.kind == "video":
+
+            pc.addTrack(
+                WindowTransformTrack(
+                    relay.subscribe(track), transform=params["video_transform"], guestTrack=guestTrack)
+            )
+
+        @track.on("ended")
+        async def on_ended():
+            log_info("Track %s ended", track.kind)
+            await recorder.stop()
+
+    # handle offer
+    await pc.setRemoteDescription(offer)
+    await recorder.start()
+
+    # send answer
+    answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+
+    return web.Response(
+        content_type="application/json",
+        text=json.dumps(
+            {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+        ),
+    )
+
+
+
+
+
+async def guestpage(request):
+    content = open(os.path.join(ROOT, "views/guest.html"), "r").read()
+    return web.Response(content_type="text/html", text=content)
+
+async def guestjs(request):
+    content = open(os.path.join(ROOT, "views/guest.js"), "r").read()
+    return web.Response(content_type="application/javascript", text=content)
+
+async def guestoffer(request):
+    params = await request.json()
+    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+
+    pc = RTCPeerConnection()
+    pc_id = "PeerConnection(%s)" % uuid.uuid4()
+    #  pcs.add(pc)
+    #  pcs[0] = pc
+    pcs["guest"] = pc
+    print("PCS: ")
+    print(pcs)
+
+    def log_info(msg, *args):
+        logger.info(pc_id + " " + msg, *args)
+
+    log_info("Created for %s", request.remote)
+
+    # prepare local media
+    player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
+    recorder = MediaBlackhole()
+
+    @pc.on("datachannel")
+    def on_datachannel(channel):
+        @channel.on("message")
+        def on_message(message):
+            if isinstance(message, str) and message.startswith("ping"):
+                channel.send("pong" + message[4:])
+
+    @pc.on("connectionstatechange")
+    async def on_connectionstatechange():
+        log_info("Connection state is %s", pc.connectionState)
+        if pc.connectionState == "failed":
+            await pc.close()
+            pcs.discard(pc)
+
+    @pc.on("track")
+    def on_track(track):
+        log_info("Track %s received", track.kind)
+
+        try:
+            windowFrontTrack = pcs["windowFront"].getReceivers()[0].track
+        except Exception as e:
+            windowFrontTrack = None
+
+        if track.kind == "audio":
+            pc.addTrack(player.audio)
+            recorder.addTrack(track)
+        elif track.kind == "video":
+
+            pc.addTrack(
+                GuestTransformTrack(
+                    relay.subscribe(track), transform=params["video_transform"], windowFrontTrack=windowFrontTrack)
+            )
+
+        @track.on("ended")
+        async def on_ended():
+            log_info("Track %s ended", track.kind)
+            await recorder.stop()
+
+    # handle offer
+    await pc.setRemoteDescription(offer)
+    await recorder.start()
+
+    # send answer
+    answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+
+    return web.Response(
+        content_type="application/json",
+        text=json.dumps(
+            {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+        ),
+    )
+
+
+
+
+async def index(request):
+    content = open(os.path.join(ROOT, "views/index.html"), "r").read()
+    return web.Response(content_type="text/html", text=content)
+
+async def javascript(request):
+    content = open(os.path.join(ROOT, "views/client.js"), "r").read()
+    return web.Response(content_type="application/javascript", text=content)
+
 
 async def dashboardpage(request):
     content = open(os.path.join(ROOT, "views/dashboard.html"), "r").read()
@@ -38,9 +217,7 @@ async def dashboardjs(request):
     content = open(os.path.join(ROOT, "views/dashboard.js"), "r").read()
     return web.Response(content_type="application/javascript", text=content)
 
-async def javascript(request):
-    content = open(os.path.join(ROOT, "client.js"), "r").read()
-    return web.Response(content_type="application/javascript", text=content)
+
 
 
 async def offer(request):
@@ -172,10 +349,6 @@ async def dashboardOffer(request):
             await recorder.stop()
 
 
-
-
-
-
     # handle offer
     await pc.setRemoteDescription(offer)
     #  await recorder.start()
@@ -200,21 +373,6 @@ async def on_shutdown(app):
 
 
 
-#  parser = argparse.ArgumentParser(
-#      description="WebRTC audio / video / data-channels demo"
-#  )
-#  parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
-#  parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
-#  parser.add_argument(
-#      "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
-#  )
-#  parser.add_argument(
-#      "--port", type=int, default=8080, help="Port for HTTP server (default: 8080)"
-#  )
-#  parser.add_argument("--record-to", help="Write received media to a file."),
-#  parser.add_argument("--verbose", "-v", action="count")
-
-#  logging.basicConfig(level=logging.DEBUG)
 logging.basicConfig(level=logging.INFO)
 ssl_context = None
 
@@ -222,54 +380,18 @@ ssl_context = None
 app = web.Application()
 app.on_shutdown.append(on_shutdown)
 app.router.add_get("/", index)
-app.router.add_get("/dashboard", dashboardpage)
-app.router.add_get("/dashboard.js", dashboardjs)
 app.router.add_get("/client.js", javascript)
 app.router.add_post("/offer", offer)
+
+app.router.add_get("/dashboard", dashboardpage)
+app.router.add_get("/dashboard.js", dashboardjs)
 app.router.add_post("/dashboardOffer", dashboardOffer)
-#  web.run_app(
-#      app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
-#  )
 
+app.router.add_get("/guest", guestpage)
+app.router.add_get("/guest.js", guestjs)
+app.router.add_post("/guestoffer", guestoffer)
 
-
-#  if __name__ == "__main__":
-#      parser = argparse.ArgumentParser(
-#          description="WebRTC audio / video / data-channels demo"
-#      )
-#      parser.add_argument("--cert-file", help="SSL certificate file (for HTTPS)")
-#      parser.add_argument("--key-file", help="SSL key file (for HTTPS)")
-#      parser.add_argument(
-#          "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
-#      )
-#      parser.add_argument(
-#          "--port", type=int, default=8080, help="Port for HTTP server (default: 8080)"
-#      )
-#      parser.add_argument("--record-to", help="Write received media to a file."),
-#      parser.add_argument("--verbose", "-v", action="count")
-
-#      args = parser.parse_args()
-
-#      if args.verbose:
-#          logging.basicConfig(level=logging.DEBUG)
-#      else:
-#          logging.basicConfig(level=logging.INFO)
-
-#      if args.cert_file:
-#          ssl_context = ssl.SSLContext()
-#          ssl_context.load_cert_chain(args.cert_file, args.key_file)
-#      else:
-#          ssl_context = None
-
-#      app = web.Application()
-#      app.on_shutdown.append(on_shutdown)
-#      app.router.add_get("/", index)
-#      app.router.add_get("/dashboard", dashboardpage)
-#      app.router.add_get("/dashboard.js", dashboardjs)
-#      app.router.add_get("/client.js", javascript)
-#      app.router.add_post("/offer", offer)
-#      app.router.add_post("/dashboardOffer", dashboardOffer)
-#      web.run_app(
-#          app, access_log=None, host=args.host, port=args.port, ssl_context=ssl_context
-#      )
+app.router.add_get("/window", windowpage)
+app.router.add_get("/window.js", windowjs)
+app.router.add_post("/windowoffer", windowoffer)
 
