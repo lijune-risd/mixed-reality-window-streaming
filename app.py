@@ -82,27 +82,27 @@ class GuestTransformTrack(MediaStreamTrack):
 
     kind = "video"
 
-    def __init__(self, track, transform, windowFrontTrack):
+    def __init__(self, track, transform):
         super().__init__()  # don't forget this!
         self.track = track
         self.transform = transform
-        self.windowFrontTrack = windowFrontTrack
 
     async def recv(self):
 
         frame = await self.track.recv()
+        img = frame.to_ndarray(format="bgr24")
 
-        if not self.windowFrontTrack: 
+        if "windowFront" not in pcs: 
             return frame
 
+        windowFrontTrack = pcs["windowFront"].getReceivers()[0].track
         #  img = frame.to_ndarray(format="bgr24")
         # strip background from img
 
-        windowFrontFrame = await self.windowFrontTrack.recv()
+        windowFrontFrame = await windowFrontTrack.recv()
         windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
 
-        frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
+        #  frame = await self.track.recv()
 
 
         #  img = np.concatenate((img, img), axis=1)
@@ -244,11 +244,6 @@ async def guestoffer(request):
     def on_track(track):
         log_info("Track %s received", track.kind)
 
-        try:
-            windowFrontTrack = pcs["windowFront"].getReceivers()[0].track
-        except Exception as e:
-            windowFrontTrack = None
-
         if track.kind == "audio":
             pc.addTrack(player.audio)
             recorder.addTrack(track)
@@ -256,7 +251,7 @@ async def guestoffer(request):
 
             pc.addTrack(
                 GuestTransformTrack(
-                    relay.subscribe(track), transform=params["video_transform"], windowFrontTrack=windowFrontTrack)
+                    relay.subscribe(track), transform=params["video_transform"])
             )
 
         @track.on("ended")
