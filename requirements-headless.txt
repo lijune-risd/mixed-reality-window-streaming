@@ -23,7 +23,7 @@ multidict==6.0.2
 netifaces==0.11.0
 numpy==1.22.3
 opencv-contrib-python==4.5.5.64
-opencv-python-headless==4.5.3.56
+opencv-python-headless==4.5.5.64
 packaging==21.3
 Pillow==9.1.0
 protobuf==3.20.0
