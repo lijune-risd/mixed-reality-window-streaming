@@ -1,4 +1,18 @@
 
+
+## Run Instructions
+
+#### Run with docker
+- Run `docker build -t flask/production-app .`
+_ Run `docker run -p 5000:5000 flask/production-app`
+
+#### Run locally
+- Run `pip install -r requirements.txt` in the project root
+- Run `./gunicorn_init.sh` or `python3 app.py`
+- Navigate to `0.0.0.0:5000/guest`, `0.0.0.0:5000/window`. Replace the `0.0.0.0` IP with your own for other devices
+- An SSL certificate is required, so if you don't provide a cert, nor are running this on a reverse proxy that has one, then you should enable settings on your browser to allow HTTP video transmission
+
+
 ## MediaStreamTrack = what you use to receive frames when someone clicks start on the website, a RTC peer connection is created. 
 On that connection there is smth called getReceivers which gives you a list of receivers
 
