@@ -106,7 +106,7 @@ async def offer(request):
     log_info("Created for %s", request.remote)
 
     # prepare local media
-    player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
+    player = MediaPlayer(os.path.join(ROOT, "assets/demo-instruct.wav"))
     if args.record_to:
         recorder = MediaRecorder(args.record_to)
     else:
