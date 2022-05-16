@@ -1,5 +1,16 @@
 
 
+- [ ] fix port issues on the vm
+- [ ] second window (back view)
+- [ ] fix lag issues
+
+
+
+
+
+
+
+
 - [ ] finish dashboard view
 - [ ] client-server-client method
 - [ ] cloud server
