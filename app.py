@@ -180,9 +180,10 @@ async def windowoffer(request):
 
             pc.addTrack(
                 WindowTransformTrack(
-                    relay.subscribe(track), transform=params["video_transform"])
+                    track, transform=params["video_transform"])
             )
 
+            #  relay.subscribe(track), transform=params["video_transform"])
         @track.on("ended")
         async def on_ended():
             log_info("Track %s ended", track.kind)
@@ -261,8 +262,9 @@ async def guestoffer(request):
 
             pc.addTrack(
                 GuestTransformTrack(
-                    relay.subscribe(track), transform=params["video_transform"])
+                    (track), transform=params["video_transform"])
             )
+                    #  relay.subscribe(track), transform=params["video_transform"])
 
         @track.on("ended")
         async def on_ended():
