@@ -51,7 +51,6 @@ class WindowTransformTrack(MediaStreamTrack):
         frame = await self.track.recv()
         img = frame.to_ndarray(format="bgr24")
 
-
         if "guest" not in pcs: 
         #  if not self.guestTrack: 
             return frame
@@ -60,6 +59,9 @@ class WindowTransformTrack(MediaStreamTrack):
 
         guestFrame = await guestTrack.recv()
         guestImg = guestFrame.to_ndarray(format="bgr24")
+
+        frame = await self.track.recv()
+        img = frame.to_ndarray(format="bgr24")
 
         try:
             img = replace_background(guestImg, img)
@@ -104,6 +106,10 @@ class GuestTransformTrack(MediaStreamTrack):
 
         windowFrontFrame = await windowFrontTrack.recv()
         windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
+
+        frame = await self.track.recv()
+        img = frame.to_ndarray(format="bgr24")
+
 
         #  frame = await self.track.recv()
 
