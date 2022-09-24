@@ -10,7 +10,7 @@ def replace_background(fg, bg):
     frame = fg
 
     # initialize mediapipe
-    mp_selfie_segmentation = mp.solutions.selfie_segmentatio
+    mp_selfie_segmentation = mp.solutions.selfie_segmentation
     selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation()
 
     RGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
