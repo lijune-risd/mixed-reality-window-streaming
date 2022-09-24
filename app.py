@@ -16,8 +16,8 @@ from aiohttp import web
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
 
-from overlay import replace_background
-
+# from overlay import replace_background
+import mediapipe as mp
 #  from MediaStreamTracks.CustomTracks import NoTransformTrack
 #  from MediaStreamTracks.CustomTracks import VideoTransformTrack
 #  from MediaStreamTracks.CustomTracks import GuestTransformTrack
@@ -32,7 +32,34 @@ logger = logging.getLogger("pc")
 pcs = {}
 curClient = None
 relay = MediaRelay()
+# initialize mediapipe
+mp_selfie_segmentation = mp.solutions.selfie_segmentation
+selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation()
 
+
+def replace_background(fg, bg):
+    bg_image = bg
+    frame = fg
+
+    # initialize mediapipe
+    # mp_selfie_segmentation = mp.solutions.selfie_segmentation
+    # selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation()
+
+    RGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    # get the result
+    results = selfie_segmentation.process(RGB)
+
+    mask = results.segmentation_mask
+    mask = cv2.GaussianBlur(mask, (33, 33), 0)
+
+    # it returns true or false where the condition applies in the mask
+    condition = np.stack(
+        (mask,) * 3, axis=-1) > 0.6
+    height, width = frame.shape[:2]
+    # resize the background image to the same size of the original frame
+    bg_image = cv2.resize(bg_image, (width, height))
+    output_image = np.where(condition, frame, bg_image)
+    return output_image
 
 
 class WindowTransformTrack(MediaStreamTrack):
