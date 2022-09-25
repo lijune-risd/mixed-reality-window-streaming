@@ -85,6 +85,7 @@ function negotiate() {
             body: JSON.stringify({
                 sdp: offer.sdp,
                 type: offer.type,
+                offerType: "windowFront",
                 video_transform: document.getElementById('video-transform').value
             }),
             headers: {

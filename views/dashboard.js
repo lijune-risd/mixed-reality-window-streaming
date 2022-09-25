@@ -81,10 +81,11 @@ function negotiate() {
         }
 
         document.getElementById('offer-sdp').textContent = offer.sdp;
-        return fetch('/dashboardOffer', {
+        return fetch('/windowoffer', {
             body: JSON.stringify({
                 sdp: offer.sdp,
                 type: offer.type,
+                offerType: "dashboard",
                 video_transform: document.getElementById('video-transform').value
             }),
             headers: {

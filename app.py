@@ -62,37 +62,38 @@ def replace_background(fg, bg):
     return output_image
 
 
-class WindowTransformTrack(MediaStreamTrack):
+class TransformTrack(MediaStreamTrack):
     """
-    A video stream track that transforms frames from an another track.
+    A video stream track that transforms frames from an another track, for both front, back, and guest
     """
-
     kind = "video"
 
-    def __init__(self, track, transform):
-        super().__init__()  # don't forget this!
+    def __init__(self, track, transform, isGuest):
+        super().__init__()  
         self.track = track
         self.transform = transform
+        self.isGuest = isGuest
 
     async def recv(self):
-
         frame = await self.track.recv()
         img = frame.to_ndarray(format="bgr24")
+        string = "guest"
+        if self.isGuest:
+            string = "windowFront"
 
-        if "guest" not in pcs:
+        if string not in pcs:
             #  if not self.guestTrack:
             return frame
 
-        guestTrack = pcs["guest"].getReceivers()[0].track
-
-        guestFrame = await guestTrack.recv()
-        guestImg = guestFrame.to_ndarray(format="bgr24")
+        n_track = pcs[string].getReceivers()[0].track
+        n_frame = await n_track.recv()
+        n_img = n_frame.to_ndarray(format="bgr24")
 
         frame = await self.track.recv()
         img = frame.to_ndarray(format="bgr24")
 
         try:
-            img = replace_background(guestImg, img)
+            img = replace_background(n_img, img)
             #  img = np.concatenate((img, guestImg), axis=1)
         except Exception as e:
             pass
@@ -101,118 +102,28 @@ class WindowTransformTrack(MediaStreamTrack):
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
         return new_frame
-
-        #  frame = await self.track.recv()
-        #  return frame
-
-
-class WindowBackTransformTrack(MediaStreamTrack):
-    """
-    A video stream track that transforms frames from an another track.
-    """
-
-    kind = "video"
-
-    def __init__(self, track, transform):
-        super().__init__()  # don't forget this!
-        self.track = track
-        self.transform = transform
-
-    async def recv(self):
-
-        frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
-
-        if "guest" not in pcs:
-            #  if not self.guestTrack:
-            return frame
-
-        guestTrack = pcs["guest"].getReceivers()[0].track
-
-        guestFrame = await guestTrack.recv()
-        guestImg = guestFrame.to_ndarray(format="bgr24")
-
-        frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
-
-        try:
-            img = replace_background(guestImg, img)
-            #  img = np.concatenate((img, guestImg), axis=1)
-        except Exception as e:
-            pass
-
-        new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-        new_frame.pts = frame.pts
-        new_frame.time_base = frame.time_base
-        return new_frame
-
-
-
-
-class GuestTransformTrack(MediaStreamTrack):
-    """
-    A video stream track that transforms frames from an another track.
-    """
-
-    kind = "video"
-
-    def __init__(self, track, transform):
-        super().__init__()  # don't forget this!
-        self.track = track
-        self.transform = transform
-
-    async def recv(self):
-
-        frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
-
-        if "windowFront" not in pcs:
-            return frame
-
-        windowFrontTrack = pcs["windowFront"].getReceivers()[0].track
-        #  img = frame.to_ndarray(format="bgr24")
-        # strip background from img
-
-        windowFrontFrame = await windowFrontTrack.recv()
-        windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
-
-        frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
-
-        #  frame = await self.track.recv()
-
-        #  img = np.concatenate((img, img), axis=1)
-        try:
-            #  img = np.concatenate((img, windowFrontImg), axis=1)
-            img = replace_background(img, windowFrontImg)
-        except Exception as e:
-            pass
-
-        new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-        new_frame.pts = frame.pts
-        new_frame.time_base = frame.time_base
-        return new_frame
-
-
-async def windowpage(request):
-    content = open(os.path.join(ROOT, "views/window.html"), "r").read()
-    return web.Response(content_type="text/html", text=content)
-
-
-async def windowjs(request):
-    content = open(os.path.join(ROOT, "views/window.js"), "r").read()
-    return web.Response(content_type="application/javascript", text=content)
 
 
 async def windowoffer(request):
     params = await request.json()
     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
-    pc = RTCPeerConnection()
-    pc_id = "PeerConnection(%s)" % uuid.uuid4()
-    pcs["windowFront"] = pc
-    print("PCS: ")
-    print(pcs)
+    # offerTypes: windowFront, windowBack, guest, offer, or dashboard
+    offerType = params["offerType"]
+
+    if offerType == "dashboard":
+        print("length of pcs: ", len(pcs))
+        pc = list(pcs)[0]
+    else:
+        pc = RTCPeerConnection()
+        pc_id = "PeerConnection(%s)" % uuid.uuid4()
+        if offerType != "offer":
+            pcs[params["offerType"]] = pc
+        else:
+            pcs.add(pc)
+        print("PCS: ")
+        print(pcs)
+
 
     def log_info(msg, *args):
         logger.info(pc_id + " " + msg, *args)
@@ -223,257 +134,7 @@ async def windowoffer(request):
     player = MediaPlayer(os.path.join(ROOT, "assets/demo-instruct.wav"))
     recorder = MediaBlackhole()
 
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        @channel.on("message")
-        def on_message(message):
-            if isinstance(message, str) and message.startswith("ping"):
-                channel.send("pong" + message[4:])
-
-    @pc.on("connectionstatechange")
-    async def on_connectionstatechange():
-        log_info("Connection state is %s", pc.connectionState)
-        if pc.connectionState == "failed":
-            await pc.close()
-            pcs.discard(pc)
-
-    @pc.on("track")
-    def on_track(track):
-        log_info("Track %s received", track.kind)
-
-        if track.kind == "audio":
-            pc.addTrack(player.audio)
-            recorder.addTrack(track)
-        elif track.kind == "video":
-
-            pc.addTrack(
-                WindowTransformTrack(
-                    track, transform=params["video_transform"])
-            )
-
-            #  relay.subscribe(track), transform=params["video_transform"])
-        @track.on("ended")
-        async def on_ended():
-            log_info("Track %s ended", track.kind)
-            await recorder.stop()
-
-    # handle offer
-    await pc.setRemoteDescription(offer)
-    await recorder.start()
-
-    # send answer
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
-
-    return web.Response(
-        content_type="application/json",
-        text=json.dumps(
-            {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
-        ),
-    )
-
-
-async def windowBackpage(request):
-    content = open(os.path.join(ROOT, "views/windowBack.html"), "r").read()
-    return web.Response(content_type="text/html", text=content)
-
-
-async def windowBackjs(request):
-    content = open(os.path.join(ROOT, "views/windowBack.js"), "r").read()
-    return web.Response(content_type="application/javascript", text=content)
-
-
-async def windowBackoffer(request):
-    params = await request.json()
-    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
-
-    pc = RTCPeerConnection()
-    pc_id = "PeerConnection(%s)" % uuid.uuid4()
-    pcs["windowBack"] = pc
-    print("PCS: ")
-    print(pcs)
-
-    def log_info(msg, *args):
-        logger.info(pc_id + " " + msg, *args)
-
-    log_info("Created for %s", request.remote)
-
-    # prepare local media
-    player = MediaPlayer(os.path.join(ROOT, "assets/demo-instruct.wav"))
-    recorder = MediaBlackhole()
-
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        @channel.on("message")
-        def on_message(message):
-            if isinstance(message, str) and message.startswith("ping"):
-                channel.send("pong" + message[4:])
-
-    @pc.on("connectionstatechange")
-    async def on_connectionstatechange():
-        log_info("Connection state is %s", pc.connectionState)
-        if pc.connectionState == "failed":
-            await pc.close()
-            pcs.discard(pc)
-
-    @pc.on("track")
-    def on_track(track):
-        log_info("Track %s received", track.kind)
-
-        if track.kind == "audio":
-            pc.addTrack(player.audio)
-            recorder.addTrack(track)
-        elif track.kind == "video":
-
-            pc.addTrack(
-                WindowBackTransformTrack(
-                    track, transform=params["video_transform"])
-            )
-
-            #  relay.subscribe(track), transform=params["video_transform"])
-        @track.on("ended")
-        async def on_ended():
-            log_info("Track %s ended", track.kind)
-            await recorder.stop()
-
-    # handle offer
-    await pc.setRemoteDescription(offer)
-    await recorder.start()
-
-    # send answer
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
-
-    return web.Response(
-        content_type="application/json",
-        text=json.dumps(
-            {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
-        ),
-    )
-
-
-async def guestpage(request):
-    content = open(os.path.join(ROOT, "views/guest.html"), "r").read()
-    return web.Response(content_type="text/html", text=content)
-
-
-async def guestjs(request):
-    content = open(os.path.join(ROOT, "views/guest.js"), "r").read()
-    return web.Response(content_type="application/javascript", text=content)
-
-
-async def guestoffer(request):
-    params = await request.json()
-    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
-
-    pc = RTCPeerConnection()
-    pc_id = "PeerConnection(%s)" % uuid.uuid4()
-    #  pcs.add(pc)
-    #  pcs[0] = pc
-    pcs["guest"] = pc
-    print("PCS: ")
-    print(pcs)
-
-    def log_info(msg, *args):
-        logger.info(pc_id + " " + msg, *args)
-
-    log_info("Created for %s", request.remote)
-
-    # prepare local media
-    player = MediaPlayer(os.path.join(ROOT, "assets/demo-instruct.wav"))
-    recorder = MediaBlackhole()
-
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        @channel.on("message")
-        def on_message(message):
-            if isinstance(message, str) and message.startswith("ping"):
-                channel.send("pong" + message[4:])
-
-    @pc.on("connectionstatechange")
-    async def on_connectionstatechange():
-        log_info("Connection state is %s", pc.connectionState)
-        if pc.connectionState == "failed":
-            await pc.close()
-            pcs.discard(pc)
-
-    @pc.on("track")
-    def on_track(track):
-        log_info("Track %s received", track.kind)
-
-        if track.kind == "audio":
-            pc.addTrack(player.audio)
-            recorder.addTrack(track)
-        elif track.kind == "video":
-
-            pc.addTrack(
-                GuestTransformTrack(
-                    (track), transform=params["video_transform"])
-            )
-            #  relay.subscribe(track), transform=params["video_transform"])
-
-        @track.on("ended")
-        async def on_ended():
-            log_info("Track %s ended", track.kind)
-            await recorder.stop()
-
-    # handle offer
-    await pc.setRemoteDescription(offer)
-    await recorder.start()
-
-    # send answer
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
-
-    return web.Response(
-        content_type="application/json",
-        text=json.dumps(
-            {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
-        ),
-    )
-
-
-async def index(request):
-    content = open(os.path.join(ROOT, "views/index.html"), "r").read()
-    return web.Response(content_type="text/html", text=content)
-
-
-async def javascript(request):
-    content = open(os.path.join(ROOT, "views/client.js"), "r").read()
-    return web.Response(content_type="application/javascript", text=content)
-
-
-async def dashboardpage(request):
-    content = open(os.path.join(ROOT, "views/dashboard.html"), "r").read()
-    return web.Response(content_type="text/html", text=content)
-
-
-async def dashboardjs(request):
-    content = open(os.path.join(ROOT, "views/dashboard.js"), "r").read()
-    return web.Response(content_type="application/javascript", text=content)
-
-
-async def offer(request):
-    params = await request.json()
-    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
-
-    pc = RTCPeerConnection()
-    pc_id = "PeerConnection(%s)" % uuid.uuid4()
-    pcs.add(pc)
-    curClient = pc
-    print("PCS: ")
-    print(pcs)
-
-    def log_info(msg, *args):
-        logger.info(pc_id + " " + msg, *args)
-
-    log_info("Created for %s", request.remote)
-
-    # prepare local media
-    player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
-    recorder = MediaBlackhole()
-
-    # Open webcam on OS X.
+    # Open webcam on OS X for the offer case
     webcamPlayer = MediaPlayer('default:none', format='avfoundation', options={
         'framerate': '30',
         'video_size': '640x480'
@@ -501,13 +162,21 @@ async def offer(request):
             pc.addTrack(player.audio)
             recorder.addTrack(track)
         elif track.kind == "video":
-
-            pc.addTrack(
-                VideoTransformTrack(
-                    relay.subscribe(track), transform=params["video_transform"], webcamPlayer=webcamPlayer)
-            )
-            #  if args.record_to:
-            #      recorder.addTrack(relay.subscribe(track))
+            if offerType == "offer":
+                pc.addTrack(
+                    VideoTransformTrack(
+                        relay.subscribe(track), transform=params["video_transform"], webcamPlayer=webcamPlayer)
+                )
+            elif offerType == "dashboard":
+                pc.addTrack(
+                    NoTransformTrack(
+                        relay.subscribe(track), transform=params["video_transform"])
+                )
+            else:
+                pc.addTrack(
+                    TransformTrack(
+                        track, transform=params["video_transform"], isGuest=(offerType == "guest"))
+                )
 
         @track.on("ended")
         async def on_ended():
@@ -529,73 +198,56 @@ async def offer(request):
         ),
     )
 
+### WEB FUNCTIONS #########################################################
+async def windowpage(request):
+    content = open(os.path.join(ROOT, "views/window.html"), "r").read()
+    return web.Response(content_type="text/html", text=content)
 
-async def dashboardOffer(request):
-    params = await request.json()
-    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+async def windowjs(request):
+    content = open(os.path.join(ROOT, "views/window.js"), "r").read()
+    return web.Response(content_type="application/javascript", text=content)
 
-    print("length of pcs: ", len(pcs))
-    pc = list(pcs)[0]
 
-    def log_info(msg, *args):
-        logger.info(" " + msg, *args)
+# -------- I don't think these 2 are necessary? I can't find any usages but I want to confirm that ----
+async def windowBackpage(request):
+    content = open(os.path.join(ROOT, "views/windowBack.html"), "r").read()
+    return web.Response(content_type="text/html", text=content)
 
-    log_info("Created for %s", request.remote)
 
-    # prepare local media
-    player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
-    recorder = MediaBlackhole()
+async def windowBackjs(request):
+    content = open(os.path.join(ROOT, "views/windowBack.js"), "r").read()
+    return web.Response(content_type="application/javascript", text=content)
+# ----------------------------------------------------------------------------------------------------
 
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        @channel.on("message")
-        def on_message(message):
-            if isinstance(message, str) and message.startswith("ping"):
-                channel.send("pong" + message[4:])
+async def guestpage(request):
+    content = open(os.path.join(ROOT, "views/guest.html"), "r").read()
+    return web.Response(content_type="text/html", text=content)
 
-    @pc.on("connectionstatechange")
-    async def on_connectionstatechange():
-        log_info("Connection state is %s", pc.connectionState)
-        if pc.connectionState == "failed":
-            await pc.close()
-            pcs.discard(pc)
 
-    @pc.on("track")
-    def on_track(track):
-        log_info("Track %s received", track.kind)
+async def guestjs(request):
+    content = open(os.path.join(ROOT, "views/guest.js"), "r").read()
+    return web.Response(content_type="application/javascript", text=content)
 
-        if track.kind == "audio":
-            pc.addTrack(player.audio)
-            recorder.addTrack(track)
-        elif track.kind == "video":
+async def index(request):
+    content = open(os.path.join(ROOT, "views/index.html"), "r").read()
+    return web.Response(content_type="text/html", text=content)
 
-            pc.addTrack(
-                NoTransformTrack(
-                    relay.subscribe(track), transform=params["video_transform"])
-            )
-            #  if args.record_to:
-            #      recorder.addTrack(relay.subscribe(track))
 
-        @track.on("ended")
-        async def on_ended():
-            log_info("Track %s ended", track.kind)
-            await recorder.stop()
+async def javascript(request):
+    content = open(os.path.join(ROOT, "views/client.js"), "r").read()
+    return web.Response(content_type="application/javascript", text=content)
 
-    # handle offer
-    await pc.setRemoteDescription(offer)
-    #  await recorder.start()
 
-    # send answer
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
+async def dashboardpage(request):
+    content = open(os.path.join(ROOT, "views/dashboard.html"), "r").read()
+    return web.Response(content_type="text/html", text=content)
 
-    return web.Response(
-        content_type="application/json",
-        text=json.dumps(
-            {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
-        ),
-    )
 
+async def dashboardjs(request):
+    content = open(os.path.join(ROOT, "views/dashboard.js"), "r").read()
+    return web.Response(content_type="application/javascript", text=content)
+
+###############################################################################
 
 async def on_shutdown(app):
     # close peer connections
@@ -607,20 +259,16 @@ async def on_shutdown(app):
 logging.basicConfig(level=logging.INFO)
 ssl_context = None
 
-
 app = web.Application()
 app.on_shutdown.append(on_shutdown)
 app.router.add_get("/", index)
 app.router.add_get("/client.js", javascript)
-app.router.add_post("/offer", offer)
 
 app.router.add_get("/dashboard", dashboardpage)
 app.router.add_get("/dashboard.js", dashboardjs)
-app.router.add_post("/dashboardOffer", dashboardOffer)
 
 app.router.add_get("/guest", guestpage)
 app.router.add_get("/guest.js", guestjs)
-app.router.add_post("/guestoffer", guestoffer)
 
 app.router.add_get("/window", windowpage)
 app.router.add_get("/window.js", windowjs)
