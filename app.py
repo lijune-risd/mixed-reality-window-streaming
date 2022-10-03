@@ -76,16 +76,16 @@ class TransformTrack(MediaStreamTrack):
 
     async def recv(self):
         frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
-        string = "guest"
-        if self.isGuest:
-            string = "windowFront"
+        # img = frame.to_ndarray(format="bgr24")
+        type = "guest"
+        if self.isGuest: # logic is reversed string, on purpose
+            type = "windowFront"
 
-        if string not in pcs:
+        if type not in pcs:
             #  if not self.guestTrack:
             return frame
 
-        n_track = pcs[string].getReceivers()[0].track
+        n_track = pcs[type].getReceivers()[0].track
         n_frame = await n_track.recv()
         n_img = n_frame.to_ndarray(format="bgr24")
 
@@ -94,7 +94,6 @@ class TransformTrack(MediaStreamTrack):
 
         try:
             img = replace_background(n_img, img)
-            #  img = np.concatenate((img, guestImg), axis=1)
         except Exception as e:
             pass
 
@@ -118,7 +117,7 @@ async def windowoffer(request):
         pc = RTCPeerConnection()
         pc_id = "PeerConnection(%s)" % uuid.uuid4()
         if offerType != "offer":
-            pcs[params["offerType"]] = pc
+            pcs[offerType] = pc
         else:
             pcs.add(pc)
         print("PCS: ")
@@ -131,14 +130,19 @@ async def windowoffer(request):
     log_info("Created for %s", request.remote)
 
     # prepare local media
-    player = MediaPlayer(os.path.join(ROOT, "assets/demo-instruct.wav"))
+    path = "assets/demo-instruct.wav"
+    if offerType == "offer" or offerType == "dashboard":
+        path = "demo-instruct.wav"
+    player = MediaPlayer(os.path.join(ROOT, path))
     recorder = MediaBlackhole()
 
     # Open webcam on OS X for the offer case
-    webcamPlayer = MediaPlayer('default:none', format='avfoundation', options={
-        'framerate': '30',
-        'video_size': '640x480'
-    })
+    webcamPlayer = None
+    if offerType == "offer":
+        webcamPlayer = MediaPlayer('default:none', format='avfoundation', options={
+            'framerate': '30',
+            'video_size': '640x480'
+        })
 
     @pc.on("datachannel")
     def on_datachannel(channel):
@@ -163,6 +167,7 @@ async def windowoffer(request):
             recorder.addTrack(track)
         elif track.kind == "video":
             if offerType == "offer":
+                # Pretty sure this doesn't exist/ is not imported
                 pc.addTrack(
                     VideoTransformTrack(
                         relay.subscribe(track), transform=params["video_transform"], webcamPlayer=webcamPlayer)
@@ -185,7 +190,8 @@ async def windowoffer(request):
 
     # handle offer
     await pc.setRemoteDescription(offer)
-    await recorder.start()
+    if offerType != "dashboard":
+        await recorder.start()
 
     # send answer
     answer = await pc.createAnswer()
