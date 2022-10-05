@@ -1,0 +1,5 @@
+mixedrealitywindow.com www.mixedrealitywindow.com {
+	tls mixedrealitywindow@gmail.com
+	log stdout
+	errors stderr 
+}
