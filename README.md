@@ -6,6 +6,8 @@
 - Run `docker build -t flask/production-app .`
 - Run `docker run -p 5000:5000 flask/production-app`
 
+Note: to stop docker, open up a new terminal tab and type `docker ps`. You should see a string of characters that looks something like "eaf6b49e137c"; this is your container id. Run `docker kill <container id>` to stop the container.
+
 #### Run locally
 - Run `pip install -r requirements.txt` in the project root
 - Run `./gunicorn_init.sh` or `python3 app.py`
