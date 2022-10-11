@@ -15,7 +15,7 @@ Note: to stop docker, open up a new terminal tab and type `docker ps`. You shoul
 - An SSL certificate is required, so if you don't provide a cert, nor are running this on a reverse proxy that has one, then you should enable settings on your browser to allow HTTP video transmission. Example for Google Chrome provided [here](https://stackoverflow.com/a/58172025)
 
 
-
+Note: On some mac OS, port 5000 is unusable. In that case, if you're using chrome, change the port in gunicorn_init.sh to 6000, rebuild the docker image, and try again. Make sure you've done the above SSL step above on both computers.
 
 
 ## Todos (old)
