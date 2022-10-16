@@ -98,6 +98,8 @@ class WindowTransformTrack(MediaStreamTrack):
             pass
 
         new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+        # new_frame.pts = guestFrame.pts
+        # new_frame.time_base = guestFrame.time_base
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
         return new_frame
@@ -132,7 +134,8 @@ class WindowBackTransformTrack(MediaStreamTrack):
         guestFrame = await guestTrack.recv()
         guestImg = guestFrame.to_ndarray(format="bgr24")
 
-        frame = await self.track.recv()
+        testTrack = pcs["windowBack"].getReceivers()[0].track
+        frame = await testTrack.recv()
         img = frame.to_ndarray(format="bgr24")
 
         try:
@@ -142,6 +145,8 @@ class WindowBackTransformTrack(MediaStreamTrack):
             pass
 
         new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+        # new_frame.pts = guestFrame.pts
+        # new_frame.time_base = guestFrame.time_base
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
         return new_frame
@@ -163,8 +168,9 @@ class GuestTransformTrack(MediaStreamTrack):
 
     async def recv(self):
 
-        frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
+        # frame = await self.track.recv()
+        # img = frame.to_ndarray(format="bgr24")
+        # return frame
 
         ## Commented Out
         # if "windowFront" not in pcs:
@@ -197,18 +203,18 @@ class GuestTransformTrack(MediaStreamTrack):
         # imgFront = None
         # imgBack = None
 
-        if "windowFront" not in pcs and "windowBack" not in pcs:
+        # #####  #####  #####  #####  #####  #####  #####
+        frame = await self.track.recv()
+        img = frame.to_ndarray(format="bgr24")
+        if ("windowFront" not in pcs) and ("windowBack" not in pcs):
             # print("YOOO")
             return frame
         elif ("windowFront" in pcs) and ("windowBack" in pcs):
             windowFrontTrack = pcs["windowFront"].getReceivers()[0].track
-            
-            #  img = frame.to_ndarray(format="bgr24")
-            # strip background from img
-
             windowFrontFrame = await windowFrontTrack.recv()
             windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
 
+            windowBackTrack = pcs["windowBack"].getReceivers()[0].track
             windowBackFrame = await windowBackTrack.recv()
             windowBackImg = windowBackFrame.to_ndarray(format="bgr24")
 
@@ -247,24 +253,23 @@ class GuestTransformTrack(MediaStreamTrack):
             if "windowBack" in pcs:
                 # print("Back IN PCS")
                 windowBackTrack = pcs["windowBack"].getReceivers()[0].track
-                
-                #  img = frame.to_ndarray(format="bgr24")
-                # strip background from img
-
                 windowBackFrame = await windowBackTrack.recv()
                 windowBackImg = windowBackFrame.to_ndarray(format="bgr24")
 
                 ## commented next two out
-                frame = await self.track.recv()
+                testTrack = pcs["guest"].getReceivers()[0].track
+                frame = await testTrack.recv()
+                # frame = await self.track.recv()
                 img= frame.to_ndarray(format="bgr24")
                 try:
-                    #  img = np.concatenate((img, windowFrontImg), axis=1)
                     img= replace_background(img, windowBackImg)
                 except Exception as e:
                     pass
                 new_frame = VideoFrame.from_ndarray(img, format="bgr24")
                 new_frame.pts = frame.pts
                 new_frame.time_base = frame.time_base
+                # new_frame.pts = frame.pts
+                # new_frame.time_base = frame.time_base
                 return new_frame
             # if "windowFront" in pcs:
             #     # print("HIII")
