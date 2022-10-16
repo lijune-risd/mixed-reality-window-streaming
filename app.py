@@ -166,32 +166,164 @@ class GuestTransformTrack(MediaStreamTrack):
         frame = await self.track.recv()
         img = frame.to_ndarray(format="bgr24")
 
-        if "windowFront" not in pcs:
+        ## Commented Out
+        # if "windowFront" not in pcs:
+        #     return frame
+
+        # windowFrontTrack = pcs["windowFront"].getReceivers()[0].track
+        
+        # #  img = frame.to_ndarray(format="bgr24")
+        # # strip background from img
+
+        # windowFrontFrame = await windowFrontTrack.recv()
+        # windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
+
+        # frame = await self.track.recv()
+        # img = frame.to_ndarray(format="bgr24")
+
+        # #  frame = await self.track.recv()
+
+        # #  img = np.concatenate((img, img), axis=1)
+        # try:
+        #     #  img = np.concatenate((img, windowFrontImg), axis=1)
+        #     img = replace_background(img, windowFrontImg)
+        # except Exception as e:
+        #     pass
+
+        # new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+        # new_frame.pts = frame.pts
+        # new_frame.time_base = frame.time_base
+
+        # imgFront = None
+        # imgBack = None
+
+        if "windowFront" not in pcs and "windowBack" not in pcs:
+            # print("YOOO")
             return frame
+        elif ("windowFront" in pcs) and ("windowBack" in pcs):
+            windowFrontTrack = pcs["windowFront"].getReceivers()[0].track
+            
+            #  img = frame.to_ndarray(format="bgr24")
+            # strip background from img
 
-        windowFrontTrack = pcs["windowFront"].getReceivers()[0].track
-        #  img = frame.to_ndarray(format="bgr24")
-        # strip background from img
+            windowFrontFrame = await windowFrontTrack.recv()
+            windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
 
-        windowFrontFrame = await windowFrontTrack.recv()
-        windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
+            windowBackFrame = await windowBackTrack.recv()
+            windowBackImg = windowBackFrame.to_ndarray(format="bgr24")
 
-        frame = await self.track.recv()
-        img = frame.to_ndarray(format="bgr24")
+            ## commented next two out
+            frame = await self.track.recv()
+            img = frame.to_ndarray(format="bgr24")
 
-        #  frame = await self.track.recv()
+            try:
+                #  img = np.concatenate((img, windowFrontImg), axis=1)
+                imgFront = replace_background(img, windowFrontImg)
+                imgBack = replace_background(img, windowBackImg)
+                img = np.concatenate((imgFront, imgBack), axis=1)
+            except Exception as e:
+                pass
+            new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+            new_frame.pts = frame.pts
+            new_frame.time_base = frame.time_base
+            return new_frame
+        else:
+            if "windowFront" in pcs:
+                windowFrontTrack = pcs["windowFront"].getReceivers()[0].track
+                windowFrontFrame = await windowFrontTrack.recv()
+                windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
+                ## commented next two out
+                frame = await self.track.recv()
+                img = frame.to_ndarray(format="bgr24")
+                try:
+                    #  img = np.concatenate((img, windowFrontImg), axis=1)
+                    img= replace_background(img, windowFrontImg)
+                except Exception as e:
+                    pass
+                new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+                new_frame.pts = frame.pts
+                new_frame.time_base = frame.time_base
+                return new_frame
+            if "windowBack" in pcs:
+                # print("Back IN PCS")
+                windowBackTrack = pcs["windowBack"].getReceivers()[0].track
+                
+                #  img = frame.to_ndarray(format="bgr24")
+                # strip background from img
 
-        #  img = np.concatenate((img, img), axis=1)
-        try:
-            #  img = np.concatenate((img, windowFrontImg), axis=1)
-            img = replace_background(img, windowFrontImg)
-        except Exception as e:
-            pass
+                windowBackFrame = await windowBackTrack.recv()
+                windowBackImg = windowBackFrame.to_ndarray(format="bgr24")
 
-        new_frame = VideoFrame.from_ndarray(img, format="bgr24")
-        new_frame.pts = frame.pts
-        new_frame.time_base = frame.time_base
-        return new_frame
+                ## commented next two out
+                frame = await self.track.recv()
+                img= frame.to_ndarray(format="bgr24")
+                try:
+                    #  img = np.concatenate((img, windowFrontImg), axis=1)
+                    img= replace_background(img, windowBackImg)
+                except Exception as e:
+                    pass
+                new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+                new_frame.pts = frame.pts
+                new_frame.time_base = frame.time_base
+                return new_frame
+            # if "windowFront" in pcs:
+            #     # print("HIII")
+            #     # print("FRONT IN PCS")
+            #     windowFrontTrack = pcs["windowFront"].getReceivers()[0].track
+                
+            #     #  img = frame.to_ndarray(format="bgr24")
+            #     # strip background from img
+
+            #     windowFrontFrame = await windowFrontTrack.recv()
+            #     windowFrontImg = windowFrontFrame.to_ndarray(format="bgr24")
+
+            #     ## commented next two out
+            #     frame = await self.track.recv()
+            #     imgFront = frame.to_ndarray(format="bgr24")
+
+            #     #  frame = await self.track.recv()
+
+            #     #  img = np.concatenate((img, img), axis=1)
+            #     try:
+            #         #  img = np.concatenate((img, windowFrontImg), axis=1)
+            #         imgFront = replace_background(imgFront, windowFrontImg)
+            #     except Exception as e:
+            #         pass
+            # if "windowBack" in pcs:
+            #     # print("Back IN PCS")
+            #     windowBackTrack = pcs["windowBack"].getReceivers()[0].track
+                
+            #     #  img = frame.to_ndarray(format="bgr24")
+            #     # strip background from img
+
+            #     windowBackFrame = await windowBackTrack.recv()
+            #     windowBackImg = windowBackFrame.to_ndarray(format="bgr24")
+
+            #     ## commented next two out
+            #     frame = await self.track.recv()
+            #     imgBack = frame.to_ndarray(format="bgr24")
+
+            #     #  frame = await self.track.recv()
+
+            #     #  img = np.concatenate((img, img), axis=1)
+            #     try:
+            #         #  img = np.concatenate((img, windowFrontImg), axis=1)
+            #         imgBack = replace_background(imgBack, windowBackImg)
+            #     except Exception as e:
+            #         pass
+            # if imgFront is None:
+            #     if imgBack is not None:
+            #         img = imgBack
+            # else:
+            #     if imgBack is None:
+            #         img = imgFront
+            #     else:
+            #         img = np.concatenate((imgFront, imgBack), axis=1)
+
+            # new_frame = VideoFrame.from_ndarray(img, format="bgr24")
+            # new_frame.pts = frame.pts
+            # new_frame.time_base = frame.time_base
+            # return new_frame
 
 
 async def windowpage(request):
@@ -211,8 +343,8 @@ async def windowoffer(request):
     pc = RTCPeerConnection()
     pc_id = "PeerConnection(%s)" % uuid.uuid4()
     pcs["windowFront"] = pc
-    print("PCS: ")
-    print(pcs)
+    # print("PCS: ")
+    # print(pcs)
 
     def log_info(msg, *args):
         logger.info(pc_id + " " + msg, *args)
@@ -235,7 +367,8 @@ async def windowoffer(request):
         log_info("Connection state is %s", pc.connectionState)
         if pc.connectionState == "failed":
             await pc.close()
-            pcs.discard(pc)
+            del pcs["windowFront"]
+            # pcs.discard(pc)
 
     @pc.on("track")
     def on_track(track):
@@ -290,8 +423,8 @@ async def windowBackoffer(request):
     pc = RTCPeerConnection()
     pc_id = "PeerConnection(%s)" % uuid.uuid4()
     pcs["windowBack"] = pc
-    print("PCS: ")
-    print(pcs)
+    # print("PCS: ")
+    # print(pcs)
 
     def log_info(msg, *args):
         logger.info(pc_id + " " + msg, *args)
@@ -314,7 +447,8 @@ async def windowBackoffer(request):
         log_info("Connection state is %s", pc.connectionState)
         if pc.connectionState == "failed":
             await pc.close()
-            pcs.discard(pc)
+            # pcs.discard(pc)
+            del pcs["windowBack"]
 
     @pc.on("track")
     def on_track(track):
@@ -371,8 +505,8 @@ async def guestoffer(request):
     #  pcs.add(pc)
     #  pcs[0] = pc
     pcs["guest"] = pc
-    print("PCS: ")
-    print(pcs)
+    # print("PCS: ")
+    # print(pcs)
 
     def log_info(msg, *args):
         logger.info(pc_id + " " + msg, *args)
@@ -395,7 +529,8 @@ async def guestoffer(request):
         log_info("Connection state is %s", pc.connectionState)
         if pc.connectionState == "failed":
             await pc.close()
-            pcs.discard(pc)
+            # pcs.discard(pc)
+            del pcs["guest"]
 
     @pc.on("track")
     def on_track(track):
@@ -453,148 +588,148 @@ async def dashboardjs(request):
     return web.Response(content_type="application/javascript", text=content)
 
 
-async def offer(request):
-    params = await request.json()
-    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+# async def offer(request):
+#     params = await request.json()
+#     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
-    pc = RTCPeerConnection()
-    pc_id = "PeerConnection(%s)" % uuid.uuid4()
-    pcs.add(pc)
-    curClient = pc
-    print("PCS: ")
-    print(pcs)
+#     pc = RTCPeerConnection()
+#     pc_id = "PeerConnection(%s)" % uuid.uuid4()
+#     pcs.add(pc)
+#     curClient = pc
+#     print("PCS: ")
+#     print(pcs)
 
-    def log_info(msg, *args):
-        logger.info(pc_id + " " + msg, *args)
+#     def log_info(msg, *args):
+#         logger.info(pc_id + " " + msg, *args)
 
-    log_info("Created for %s", request.remote)
+#     log_info("Created for %s", request.remote)
 
-    # prepare local media
-    player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
-    recorder = MediaBlackhole()
+#     # prepare local media
+#     player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
+#     recorder = MediaBlackhole()
 
-    # Open webcam on OS X.
-    webcamPlayer = MediaPlayer('default:none', format='avfoundation', options={
-        'framerate': '30',
-        'video_size': '640x480'
-    })
+#     # Open webcam on OS X.
+#     webcamPlayer = MediaPlayer('default:none', format='avfoundation', options={
+#         'framerate': '30',
+#         'video_size': '640x480'
+#     })
 
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        @channel.on("message")
-        def on_message(message):
-            if isinstance(message, str) and message.startswith("ping"):
-                channel.send("pong" + message[4:])
+#     @pc.on("datachannel")
+#     def on_datachannel(channel):
+#         @channel.on("message")
+#         def on_message(message):
+#             if isinstance(message, str) and message.startswith("ping"):
+#                 channel.send("pong" + message[4:])
 
-    @pc.on("connectionstatechange")
-    async def on_connectionstatechange():
-        log_info("Connection state is %s", pc.connectionState)
-        if pc.connectionState == "failed":
-            await pc.close()
-            pcs.discard(pc)
+#     @pc.on("connectionstatechange")
+#     async def on_connectionstatechange():
+#         log_info("Connection state is %s", pc.connectionState)
+#         if pc.connectionState == "failed":
+#             await pc.close()
+#             pcs.discard(pc)
 
-    @pc.on("track")
-    def on_track(track):
-        log_info("Track %s received", track.kind)
+#     @pc.on("track")
+#     def on_track(track):
+#         log_info("Track %s received", track.kind)
 
-        if track.kind == "audio":
-            pc.addTrack(player.audio)
-            recorder.addTrack(track)
-        elif track.kind == "video":
+#         if track.kind == "audio":
+#             pc.addTrack(player.audio)
+#             recorder.addTrack(track)
+#         elif track.kind == "video":
 
-            pc.addTrack(
-                VideoTransformTrack(
-                    relay.subscribe(track), transform=params["video_transform"], webcamPlayer=webcamPlayer)
-            )
-            #  if args.record_to:
-            #      recorder.addTrack(relay.subscribe(track))
+#             pc.addTrack(
+#                 VideoTransformTrack(
+#                     relay.subscribe(track), transform=params["video_transform"], webcamPlayer=webcamPlayer)
+#             )
+#             #  if args.record_to:
+#             #      recorder.addTrack(relay.subscribe(track))
 
-        @track.on("ended")
-        async def on_ended():
-            log_info("Track %s ended", track.kind)
-            await recorder.stop()
+#         @track.on("ended")
+#         async def on_ended():
+#             log_info("Track %s ended", track.kind)
+#             await recorder.stop()
 
-    # handle offer
-    await pc.setRemoteDescription(offer)
-    await recorder.start()
+#     # handle offer
+#     await pc.setRemoteDescription(offer)
+#     await recorder.start()
 
-    # send answer
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
+#     # send answer
+#     answer = await pc.createAnswer()
+#     await pc.setLocalDescription(answer)
 
-    return web.Response(
-        content_type="application/json",
-        text=json.dumps(
-            {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
-        ),
-    )
+#     return web.Response(
+#         content_type="application/json",
+#         text=json.dumps(
+#             {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+#         ),
+#     )
 
 
-async def dashboardOffer(request):
-    params = await request.json()
-    offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
+# async def dashboardOffer(request):
+#     params = await request.json()
+#     offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
 
-    print("length of pcs: ", len(pcs))
-    pc = list(pcs)[0]
+#     print("length of pcs: ", len(pcs))
+#     pc = list(pcs)[0]
 
-    def log_info(msg, *args):
-        logger.info(" " + msg, *args)
+#     def log_info(msg, *args):
+#         logger.info(" " + msg, *args)
 
-    log_info("Created for %s", request.remote)
+#     log_info("Created for %s", request.remote)
 
-    # prepare local media
-    player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
-    recorder = MediaBlackhole()
+#     # prepare local media
+#     player = MediaPlayer(os.path.join(ROOT, "demo-instruct.wav"))
+#     recorder = MediaBlackhole()
 
-    @pc.on("datachannel")
-    def on_datachannel(channel):
-        @channel.on("message")
-        def on_message(message):
-            if isinstance(message, str) and message.startswith("ping"):
-                channel.send("pong" + message[4:])
+#     @pc.on("datachannel")
+#     def on_datachannel(channel):
+#         @channel.on("message")
+#         def on_message(message):
+#             if isinstance(message, str) and message.startswith("ping"):
+#                 channel.send("pong" + message[4:])
 
-    @pc.on("connectionstatechange")
-    async def on_connectionstatechange():
-        log_info("Connection state is %s", pc.connectionState)
-        if pc.connectionState == "failed":
-            await pc.close()
-            pcs.discard(pc)
+#     @pc.on("connectionstatechange")
+#     async def on_connectionstatechange():
+#         log_info("Connection state is %s", pc.connectionState)
+#         if pc.connectionState == "failed":
+#             await pc.close()
+#             pcs.discard(pc)
 
-    @pc.on("track")
-    def on_track(track):
-        log_info("Track %s received", track.kind)
+#     @pc.on("track")
+#     def on_track(track):
+#         log_info("Track %s received", track.kind)
 
-        if track.kind == "audio":
-            pc.addTrack(player.audio)
-            recorder.addTrack(track)
-        elif track.kind == "video":
+#         if track.kind == "audio":
+#             pc.addTrack(player.audio)
+#             recorder.addTrack(track)
+#         elif track.kind == "video":
 
-            pc.addTrack(
-                NoTransformTrack(
-                    relay.subscribe(track), transform=params["video_transform"])
-            )
-            #  if args.record_to:
-            #      recorder.addTrack(relay.subscribe(track))
+#             pc.addTrack(
+#                 NoTransformTrack(
+#                     relay.subscribe(track), transform=params["video_transform"])
+#             )
+#             #  if args.record_to:
+#             #      recorder.addTrack(relay.subscribe(track))
 
-        @track.on("ended")
-        async def on_ended():
-            log_info("Track %s ended", track.kind)
-            await recorder.stop()
+#         @track.on("ended")
+#         async def on_ended():
+#             log_info("Track %s ended", track.kind)
+#             await recorder.stop()
 
-    # handle offer
-    await pc.setRemoteDescription(offer)
-    #  await recorder.start()
+#     # handle offer
+#     await pc.setRemoteDescription(offer)
+#     #  await recorder.start()
 
-    # send answer
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
+#     # send answer
+#     answer = await pc.createAnswer()
+#     await pc.setLocalDescription(answer)
 
-    return web.Response(
-        content_type="application/json",
-        text=json.dumps(
-            {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
-        ),
-    )
+#     return web.Response(
+#         content_type="application/json",
+#         text=json.dumps(
+#             {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
+#         ),
+#     )
 
 
 async def on_shutdown(app):
@@ -610,13 +745,13 @@ ssl_context = None
 
 app = web.Application()
 app.on_shutdown.append(on_shutdown)
-app.router.add_get("/", index)
-app.router.add_get("/client.js", javascript)
-app.router.add_post("/offer", offer)
+# app.router.add_get("/", index)
+# app.router.add_get("/client.js", javascript)
+# app.router.add_post("/offer", offer)
 
-app.router.add_get("/dashboard", dashboardpage)
-app.router.add_get("/dashboard.js", dashboardjs)
-app.router.add_post("/dashboardOffer", dashboardOffer)
+# app.router.add_get("/dashboard", dashboardpage)
+# app.router.add_get("/dashboard.js", dashboardjs)
+# app.router.add_post("/dashboardOffer", dashboardOffer)
 
 app.router.add_get("/guest", guestpage)
 app.router.add_get("/guest.js", guestjs)
@@ -625,3 +760,7 @@ app.router.add_post("/guestoffer", guestoffer)
 app.router.add_get("/window", windowpage)
 app.router.add_get("/window.js", windowjs)
 app.router.add_post("/windowoffer", windowoffer)
+
+app.router.add_get("/windowBack", windowBackpage)
+app.router.add_get("/windowBack.js", windowBackjs)
+app.router.add_post("/windowBackoffer", windowBackoffer)
