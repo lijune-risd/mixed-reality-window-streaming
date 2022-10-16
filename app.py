@@ -372,7 +372,10 @@ async def windowoffer(request):
         log_info("Connection state is %s", pc.connectionState)
         if pc.connectionState == "failed":
             await pc.close()
-            del pcs["windowFront"]
+            try:
+                del pcs["windowFront"]
+            except Exception as e:
+                pass
             # pcs.discard(pc)
 
     @pc.on("track")
@@ -453,7 +456,11 @@ async def windowBackoffer(request):
         if pc.connectionState == "failed":
             await pc.close()
             # pcs.discard(pc)
-            del pcs["windowBack"]
+            try:
+                del pcs["windowBack"]
+            except Exception as e:
+                pass
+            
 
     @pc.on("track")
     def on_track(track):
@@ -535,7 +542,10 @@ async def guestoffer(request):
         if pc.connectionState == "failed":
             await pc.close()
             # pcs.discard(pc)
-            del pcs["guest"]
+            try:
+                del pcs["guest"]
+            except Exception as e:
+                pass
 
     @pc.on("track")
     def on_track(track):
