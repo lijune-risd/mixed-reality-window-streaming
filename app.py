@@ -16,12 +16,7 @@ from aiohttp import web
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder, MediaRelay
 
-# from overlay import replace_background
 import mediapipe as mp
-#  from MediaStreamTracks.CustomTracks import NoTransformTrack
-#  from MediaStreamTracks.CustomTracks import VideoTransformTrack
-#  from MediaStreamTracks.CustomTracks import GuestTransformTrack
-#  from MediaStreamTracks.CustomTracks import WindowTransformTrack
 
 ROOT = os.path.dirname(__file__)
 
@@ -36,14 +31,13 @@ relay = MediaRelay()
 mp_selfie_segmentation = mp.solutions.selfie_segmentation
 selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation()
 
+window_video_track = None
+guest_video_track = None
 
 def replace_background(fg, bg):
     bg_image = bg
     frame = fg
 
-    # initialize mediapipe
-    # mp_selfie_segmentation = mp.solutions.selfie_segmentation
-    # selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation()
 
     RGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     # get the result
@@ -73,6 +67,7 @@ class WindowTransformTrack(MediaStreamTrack):
         super().__init__()  # don't forget this!
         self.track = track
         self.transform = transform
+        self.channel = None
 
     async def recv(self):
 
@@ -100,6 +95,10 @@ class WindowTransformTrack(MediaStreamTrack):
         new_frame = VideoFrame.from_ndarray(img, format="bgr24")
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
+
+        await self.channel._RTCDataChannel__transport._data_channel_flush()
+        await self.channel._RTCDataChannel__transport._transmit()
+
         return new_frame
 
         #  frame = await self.track.recv()
@@ -160,6 +159,7 @@ class GuestTransformTrack(MediaStreamTrack):
         super().__init__()  # don't forget this!
         self.track = track
         self.transform = transform
+        self.channel = None
 
     async def recv(self):
 
@@ -191,6 +191,10 @@ class GuestTransformTrack(MediaStreamTrack):
         new_frame = VideoFrame.from_ndarray(img, format="bgr24")
         new_frame.pts = frame.pts
         new_frame.time_base = frame.time_base
+
+        await self.channel._RTCDataChannel__transport._data_channel_flush()
+        await self.channel._RTCDataChannel__transport._transmit()
+
         return new_frame
 
 
@@ -226,6 +230,9 @@ async def windowoffer(request):
     @pc.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
+        global window_video_track
+        window_video_track.channel = channel
+
         def on_message(message):
             if isinstance(message, str) and message.startswith("ping"):
                 channel.send("pong" + message[4:])
@@ -241,15 +248,19 @@ async def windowoffer(request):
     def on_track(track):
         log_info("Track %s received", track.kind)
 
-        if track.kind == "audio":
-            pc.addTrack(player.audio)
-            recorder.addTrack(track)
-        elif track.kind == "video":
+        global window_video_track 
+        window_video_track = WindowTransformTrack(track, transform=params["video_transform"])
+        pc.addTrack(window_video_track)
 
-            pc.addTrack(
-                WindowTransformTrack(
-                    track, transform=params["video_transform"])
-            )
+        #  if track.kind == "audio":
+        #      pc.addTrack(player.audio)
+        #      recorder.addTrack(track)
+        #  elif track.kind == "video":
+
+        #      pc.addTrack(
+        #          WindowTransformTrack(
+        #              track, transform=params["video_transform"])
+        #      )
 
             #  relay.subscribe(track), transform=params["video_transform"])
         @track.on("ended")
@@ -386,6 +397,10 @@ async def guestoffer(request):
     @pc.on("datachannel")
     def on_datachannel(channel):
         @channel.on("message")
+
+        global guest_video_track
+        guest_video_track.channel = channel
+
         def on_message(message):
             if isinstance(message, str) and message.startswith("ping"):
                 channel.send("pong" + message[4:])
@@ -401,15 +416,19 @@ async def guestoffer(request):
     def on_track(track):
         log_info("Track %s received", track.kind)
 
-        if track.kind == "audio":
-            pc.addTrack(player.audio)
-            recorder.addTrack(track)
-        elif track.kind == "video":
+        global guest_video_track 
+        guest_video_track = WindowTransformTrack(track, transform=params["video_transform"])
+        pc.addTrack(guest_video_track)
 
-            pc.addTrack(
-                GuestTransformTrack(
-                    (track), transform=params["video_transform"])
-            )
+        #  if track.kind == "audio":
+        #      pc.addTrack(player.audio)
+        #      recorder.addTrack(track)
+        #  elif track.kind == "video":
+
+        #      pc.addTrack(
+        #          GuestTransformTrack(
+        #              (track), transform=params["video_transform"])
+        #      )
             #  relay.subscribe(track), transform=params["video_transform"])
 
         @track.on("ended")
