@@ -8,8 +8,18 @@
 
 Note: to stop docker, open up a new terminal tab and type `docker ps`. You should see a string of characters that looks something like "eaf6b49e137c"; this is your container id. Run `docker kill <container id>` to stop the container.
 
+#### setting up cloud server for dev
+- centos8
+- install python37 with epel enabled
+- `pip3 install --user virtualenv`
+
+
 #### Run locally
-- Run `pip install -r requirements.txt` in the project root
+- We recommend running python 3.7 or above
+- `yum install libXext libSM libXrender`
+
+
+- Run `pip install -r requirements.txt` in the project root (use `requirements-headless.txt` if on a remote machine or within docker for headless OpenCV)
 - Run `./gunicorn_init.sh` or `python3 app.py`
 - Navigate to `0.0.0.0:5000/guest`, `0.0.0.0:5000/window`. Replace the `0.0.0.0` IP with your own for other devices
 - An SSL certificate is required, so if you don't provide a cert, nor are running this on a reverse proxy that has one, then you should enable settings on your browser to allow HTTP video transmission. Example for Google Chrome provided [here](https://stackoverflow.com/a/58172025)
