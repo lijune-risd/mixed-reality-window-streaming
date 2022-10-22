@@ -35,6 +35,9 @@ relay = MediaRelay()
 # initialize mediapipe
 mp_selfie_segmentation = mp.solutions.selfie_segmentation
 selfie_segmentation = mp_selfie_segmentation.SelfieSegmentation()
+countWindowTrack = 0
+countWindowBackTrack = 0
+countGuestTrack = 0
 
 
 def replace_background(fg, bg):
@@ -75,6 +78,11 @@ class WindowTransformTrack(MediaStreamTrack):
         self.transform = transform
 
     async def recv(self):
+        # global countWindowTrack
+        # if countWindowTrack == 10:
+        #     for i in range(9):
+        #         self.track.recv()
+        #     countWindowTrack = 0
 
         frame = await self.track.recv()
         img = frame.to_ndarray(format="bgr24")
@@ -84,6 +92,12 @@ class WindowTransformTrack(MediaStreamTrack):
             return frame
 
         guestTrack = pcs["guest"].getReceivers()[0].track
+
+        # global countGuestTrack
+        # if countGuestTrack == 10:
+        #     for i in range(9):
+        #         guestTrack.recv()
+        #     countGuestTrack = 0
 
         guestFrame = await guestTrack.recv()
         guestImg = guestFrame.to_ndarray(format="bgr24")
@@ -121,6 +135,11 @@ class WindowBackTransformTrack(MediaStreamTrack):
         self.transform = transform
 
     async def recv(self):
+        # global countWindowBackTrack
+        # if countWindowBackTrack == 10:
+        #     for i in range(9):
+        #         self.track.recv()
+        #     countWindowBackTrack = 0
 
         frame = await self.track.recv()
         img = frame.to_ndarray(format="bgr24")
@@ -131,6 +150,13 @@ class WindowBackTransformTrack(MediaStreamTrack):
 
         guestTrack = pcs["guest"].getReceivers()[0].track
 
+        # global countGuestTrack
+        # if countGuestTrack == 10:
+        #     for i in range(9):
+        #         guestTrack.recv()
+        #     countGuestTrack = 0
+
+        
         guestFrame = await guestTrack.recv()
         guestImg = guestFrame.to_ndarray(format="bgr24")
 
